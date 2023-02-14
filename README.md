@@ -1,13 +1,11 @@
-# Custom TICK stack Sandbox
+# Custom TICK stack Sandbox 2.0
 This is a custom TICK stack sandbox with:  
-TELEGRAF 1.13
 
-INFLUXDB 1.8
 
-CHRONOGRAF latest
-
-KAPACITOR 1.5.5
-
+TELEGRAF 1.2
+INFLUXDB 2.1
+CHRONOGRAF 1.9
+KAPACITOR 1.6
 GRAFANA 7.1.0 
 
 ### How to Run Sandbox
@@ -33,39 +31,101 @@ sandbox commands:
 
 To get started just run `./sandbox up`. You browser will open two tabs:
 
-- `localhost:8888` - Chronograf's address. You will use this as a management UI for the full stack
+- `localhost:8086` - InfluxDB's address. You will use this as a management UI for the Influx DB and dashboards etc starting from 2.0
+- `localhost:8888` - Chronograf's address. In 1.x Chronograf was the central tool. 
+                     Below we will be doing some steps to ensure backward compatibility with chronograf. 
 - `localhost:3010` - Documentation server. This contains a simple markdown server for tutorials and documentation.
 
-### Grafana
-Grafana can be accessed at localhost:3000 
-Default credentials for Grafana: admin/admin 
-Enter these and change the default password. 
-
-Configuration:
-Left side menu (+ icon)  -> create -> Dashboard -> Create a sample dashboard. Save. 
-Left side menu (gear icon) -> configuration - Data Source 
- HTTP url:  http://influxdb:8086 
- Database: telegraf
-Click Save & Test
 
 > NOTE: Make sure to stop any existing installations of `influxdb`, `kapacitor` or `chronograf`. If you have them running the Sandbox will run into port conflicts and fail to properly start. In this case stop the existing processes and run `./sandbox restart`. Also make sure you are **not** using _Docker Toolbox_.
 
 Once the Sandbox launches, you should see your dashboard appear in your browser:
 
-![Dashboard](./documentation/static/images/landing-page.png)
+### Configuration Steps 
+Once sandbox is up, login to the influx db admin page: http://localhost:8086/
+Enter these details:
+```
+Org: org
+User: admin 
+Password: admin123
+Bucket: telegraf (Bucket name has to be telegraf for chornograf to work) 
+```
+Ensure the database initialization is completed. 
 
-You are ready to get started with the TICK Stack!
+Copy the Admin's token from Data-> API Tokens screen and paste in telegraf.conf and kapacitor.conf. 
 
-Click the Host icon in the left navigation bar to see your host (named `telegraf-getting-started`) and its overall status.
-![Host List](./documentation/static/images/host-list.png)
+Restart telegraf docker from docker desktop and check status. 
+Once telegraf is running, you can check the system metrics coming inside the telegraf database. 
 
-You can click on `system` hyperlink to see a pre-built dashboard visualizing the basic system stats for your
-host, then check out the tutorials at `http://localhost:3010/tutorials`.
+Restart kapacitor docker container from docker desktop and check status. 
 
-If you are using the nightly builds and want to get started with Flux, make sure you check out the [Getting Started with Flux](./documentation/static/tutorials/flux-getting-started.md) tutorial.
+From Chronograf you can add the database into the config as given here:
+https://docs.influxdata.com/chronograf/v1.9/administration/creating-connections/#manage-influxdb-connections-using-the-chronograf-ui
 
-> Note: see [influx-stress](https://github.com/influxdata/influx-stress) to create data for your Sandbox.
+Influx DB config:
+```
+URL for influxDB: http://influxdb:8086
+Org: org
+Token: Value from API Tokens screen
+Database: telegraf
+Retention Policy: autogen 
+```
+Kapacitor config:
+```
+URL for Kapacitor: http://kapacitor:9092
+Leave other fields blank/default. 
+```
 
+Influx DB 2.0 does not have databases and retention policies, it has buckets which combine both. To support tools like Chronograf, we need to create mapping between our bucket and db, rp combination. For this login to the influxdb: 
+
+./sandbox enter influxdb
+
+To map the bucket as per the v1.0 requirement enter below command. Token value is from API Tokens screen, and bucket-id is from Data->Buckets screen. 
+
+```
+influx v1 dbrp create \
+   --org=org \
+   --token=LLDY7DAD3VLT_MytcF1AX7A72qOgEFlR3GG98HNGp0Now0zaz0H1ACWcZoI6xQb5-qiT8LR8jPpTzQGJUEKGlg== \
+   --db telegraf \
+   --rp autogen \
+   --bucket-id ff28b87f09e61d21 --default
+```
+
+### Grafana
+Grafana can be accessed at localhost:3000 
+
+Default credentials for Grafana: admin/admin 
+
+Enter these and change the default password. 
+
+Configuration:
+Left side menu (+ icon)  -> create -> Dashboard -> Create a sample dashboard. Save. 
+
+Left side menu (gear icon) -> configuration - Data Source (Select influxdb) 
+
+Change query language to Flux (influxql only supported in 1.x)
+
+```
+ HTTP url:  http://influxdb:8086 
+ Database: telegraf
+ Org: org
+ Token: value from the API Tokens
+ ```
+ 
+ 
+Click Save & Test
+
+
+Reference: 
+https://www.influxdata.com/blog/running-influxdb-2-0-and-telegraf-using-docker/
+
+https://www.sqlpac.com/en/documents/influxdb-v2-getting-started-setup-preparing-migration-from-version-1.7.html
+
+https://docs.influxdata.com/influxdb/v2.0/tools/chronograf/
+
+
+https://github.com/influxdata/chronograf/issues/2830
+=======
 ![Dashboard](./documentation/static/images/sandbox-dashboard.png)
 
 ### InfluxDB
